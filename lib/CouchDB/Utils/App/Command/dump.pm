@@ -28,6 +28,7 @@ sub opt_spec {
 	['https'=> 'secure' ],
 	['server|s=s'=> 'server to connect to', { default => 'localhost' } ],
 	['port|p=i'=> 'port to connect to', { default => 5984 } ],
+	['url|l=s' => 'full database url'],
 }
 
 sub validate_args {
@@ -47,11 +48,13 @@ sub execute {
 	my $dir = rel2abs($args->[1] || $name); 
 	mkpath($dir); ##  make sure it exists, create it otherwise
 
-	my $uri = URI->new; ## easier to handle default values
-	$uri->scheme($opt->{https} ? 'https' : 'http');
-	$uri->host($opt->{server});
-	$uri->port($opt->{port});
-	$uri->path($name);
+	my $uri = URI->new($opt->{url}); ## easier to handle default values
+	unless ($opt->{url}) {
+		$uri->scheme($opt->{https} ? 'https' : 'http');
+		$uri->host($opt->{server});
+		$uri->port($opt->{port});
+		$uri->path($name);
+	}
 
 	my $db = couchdb($uri->as_string);
 	my $docs_opts = {};
@@ -131,7 +134,7 @@ CouchDB::Utils::App::Command::dump
 
 =head1 VERSION
 
-version 0.2
+version 0.3
 
 =head1 AUTHOR
 

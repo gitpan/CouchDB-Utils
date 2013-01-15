@@ -30,6 +30,7 @@ sub opt_spec {
 	['https'=> 'secure' ],
 	['server|s=s'=> 'server to connect to', { default => 'localhost' } ],
 	['port|p=i'=> 'port to connect to', { default => 5984 } ],
+	['url|l=s' => 'full database url'],
 }
 
 sub validate_args {
@@ -45,11 +46,13 @@ sub execute {
 	## unspecified database name will default to the path name
 	my $name = $args->[1] || basename($path);
 
-	my $uri = URI->new; ## easier to handle default values
-	$uri->scheme($opt->{https} ? 'https' : 'http');
-	$uri->host($opt->{server});
-	$uri->port($opt->{port});
-	$uri->path($name);
+	my $uri = URI->new($opt->{url}); ## easier to handle default values
+	unless ($opt->{url}) {
+		$uri->scheme($opt->{https} ? 'https' : 'http');
+		$uri->host($opt->{server});
+		$uri->port($opt->{port});
+		$uri->path($name);
+	}
 
 	my $db = couchdb($uri->as_string);
 	my $json = JSON->new->allow_nonref->pretty;
@@ -168,7 +171,7 @@ CouchDB::Utils::App::Command::load
 
 =head1 VERSION
 
-version 0.2
+version 0.3
 
 =head1 AUTHOR
 
