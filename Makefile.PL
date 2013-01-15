@@ -24,6 +24,7 @@ my %WriteMakefileArgs = (
   "PREREQ_PM" => {
     "AnyEvent::CouchDB" => 0,
     "App::Cmd::Setup" => 0,
+    "Data::Dump" => 0,
     "File::Basename" => 0,
     "File::MimeInfo::Simple" => 0,
     "File::Path" => 0,
@@ -37,7 +38,7 @@ my %WriteMakefileArgs = (
     "utf8" => 0,
     "warnings" => 0
   },
-  "VERSION" => "0.1",
+  "VERSION" => "0.2",
   "test" => {
     "TESTS" => ""
   }

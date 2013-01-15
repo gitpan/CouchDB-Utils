@@ -54,7 +54,8 @@ sub execute {
 	$uri->path($name);
 
 	my $db = couchdb($uri->as_string);
-	my $docs_opts = { include_docs => 1 };
+	my $docs_opts = {};
+
 	unless (exists $opt->{all}) {
 		$docs_opts->{startkey} = '_design';
 		$docs_opts->{endkey} = '_design0';
@@ -68,13 +69,23 @@ sub execute {
 
 		## views & attachments are stored separately of docs:
 		## so we cut them out of the doc for later processing
-		my $doc = $row->{doc};
+		my $doc = $db->open_doc($id, {revs_info => 'true'})->recv;
 		my $views = delete $doc->{views};
 		my $attachments = delete $doc->{_attachments};
 
+		if (my $revs_info = delete $doc->{_revs_info}) {
+			my ($start, @ids);
+			foreach my $revision (@$revs_info) {
+				my ($rev_start,$rev_id) = split /-/, $revision->{rev}, 2;
+				$start ||= int($rev_start ||= 1);
+				push @ids, $rev_id;
+			}
+			$doc->{_revisions} = { start => $start, ids => \@ids };
+		}
+
 		## pretty json formating makes it easier to edit the docs once
 		## they are on the file system
-		my $pretty_doc = $json->encode($row->{doc}); 
+		my $pretty_doc = $json->encode($doc); 
 		_dump(catfile($doc_dir,'doc')=> $pretty_doc);
 
 		if (defined $views) {
@@ -120,7 +131,7 @@ CouchDB::Utils::App::Command::dump
 
 =head1 VERSION
 
-version 0.1
+version 0.2
 
 =head1 AUTHOR
 

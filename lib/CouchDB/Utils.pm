@@ -4,7 +4,7 @@ package CouchDB::Utils;
 
 # ABSTRACT: couchdb command line utils
 
-our $VERSION = '0.1';
+our $VERSION = '0.2';
 
 1;
 
@@ -18,7 +18,7 @@ CouchDB::Utils - couchdb command line utils
 
 =head1 VERSION
 
-version 0.1
+version 0.2
 
 =head1 AUTHOR
 

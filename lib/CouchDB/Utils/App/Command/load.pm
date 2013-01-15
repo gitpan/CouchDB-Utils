@@ -12,6 +12,7 @@ use File::Slurp qw(read_file);
 use File::Spec::Functions qw(rel2abs catdir catfile);
 use File::MimeInfo::Simple;
 use AnyEvent::CouchDB;
+use Data::Dump 'pp';
 
 sub description {
 	'load a db from the filesystem to couch';
@@ -51,25 +52,58 @@ sub execute {
 	$uri->path($name);
 
 	my $db = couchdb($uri->as_string);
+	my $json = JSON->new->allow_nonref->pretty;
 
+	my @docs;
 	opendir (my $dh, $path) || die $!;
-	while (readdir $dh) {
+	while (my $f = readdir $dh) {
+		next if $f eq '.' || $f eq '..';
+
 		my $doc;
-		my $f = $_;
-		next if $_ eq '.' || $_ eq '..';
 		if ($f eq '_design') {
 			opendir (my $views, catdir($path,'_design')) || die $!;
 			while (readdir $views) {
 				next if $_ eq '.' || $_ eq '..';
-				my $id = "_design/$_";
-				_load_doc($db, $path, $id);
+				push @docs, _load_doc($db, $path, "_design/$_");
 			}
 			closedir $views;
 		} else {
-			_load_doc($db, $path, $_);
+			push @docs, _load_doc($db, $path, $_);
 		}
 	}
 	closedir $dh;
+
+	my $bulk = $db->bulk_docs(\@docs, {new_edits => 'false'})->recv;
+	foreach my $load (@$bulk) {
+		if ($load->{ok}) {
+			my $id = $load->{id};
+			my $doc = $db->open_doc($id, {revs_info => 'true'})->recv;
+
+			delete $doc->{'views'} if $id =~ m/^_design\//;
+			delete $doc->{'_attachments'};
+
+			if (my $revs_info = delete $doc->{_revs_info}) {
+				my ($start, @ids);
+				foreach my $revision (@$revs_info) {
+					my ($rev_start,$rev_id) = split /-/, $revision->{rev}, 2;
+					$start ||= int($rev_start ||= 1);
+					push @ids, $rev_id;
+				}
+				$doc->{_revisions} = { start => $start, ids => \@ids };
+			}
+
+			my $doc_path = catfile($path, $id, 'doc');
+			open DOC, ">$doc_path" or die $!;
+			print DOC $json->encode($doc);
+			close DOC;
+
+		} elsif ($load->{error}) {
+			warn "$load->{id} $load->{error}: $load->{reason}\n" ;
+		} else {
+			pp($load);
+		}
+
+	}
 }
 
 sub _load_doc {
@@ -119,16 +153,7 @@ sub _load_doc {
 		closedir $atts;
 	}
 
-	my $saved = $db->save_doc($doc)->recv;
-	if ($saved->{ok}) {
-        	my $json = JSON->new->allow_nonref->pretty;
-		delete $doc->{'views'} if $id =~ m/^_design\//;
-		delete $doc->{'_attachments'};
-		open DOC, ">$doc_path" or die $!;
-		print DOC $json->encode($doc);
-		close DOC;
-	}
-
+	return $doc;
 }
 
 1;
@@ -143,7 +168,7 @@ CouchDB::Utils::App::Command::load
 
 =head1 VERSION
 
-version 0.1
+version 0.2
 
 =head1 AUTHOR
 
